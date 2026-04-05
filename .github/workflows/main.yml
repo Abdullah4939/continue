@@ -41,6 +41,7 @@ jobs:
       - name: Build Core
         run: |
           cd core
+          # Ensure critical parsing libs are present
           npm install partial-json --legacy-peer-deps
           npm install --legacy-peer-deps
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
@@ -48,10 +49,11 @@ jobs:
         shell: pwsh
         continue-on-error: true
 
-      - name: Build GUI
+      - name: Build GUI (Dependency Fix Included)
         run: |
           cd gui
-          npm install partial-json --legacy-peer-deps
+          # Force install the common missing Rollup/Vite dependencies
+          npm install react-is partial-json --legacy-peer-deps
           npm install --legacy-peer-deps
           npx vite build
           cd ..
@@ -60,17 +62,15 @@ jobs:
       - name: Package VS Code Extension
         run: |
           cd extensions/vscode
-          # Ensure build dir exists
           if (!(Test-Path build)) { New-Item -ItemType Directory -Path build }
           
-          # Install dependencies with legacy-peer-deps to ignore the @types/node conflict
-          # Also manually install ncp since it's failing to resolve
+          # Fix missing build tools in extension folder
           npm install ncp esbuild --legacy-peer-deps
           npm install --legacy-peer-deps
           
           npm run prepackage
           
-          # Use --no-dependencies to avoid the npm list ELSPROBLEMS audit
+          # Skip audit to avoid monorepo version conflicts
           vsce package --target win32-x64 --no-dependencies --out build/continue-qwen.vsix
         shell: pwsh
 
