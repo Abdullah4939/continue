@@ -73,3 +73,5 @@ jobs:
         with:
           name: continue-qwen-extension
           path: extensions/vscode/build/continue-qwen.vsix
+
+          
