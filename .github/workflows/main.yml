@@ -7,12 +7,13 @@ on:
 
 jobs:
   build-windows:
-    # We use windows-latest to ensure native modules compile for Windows
     runs-on: windows-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive # Ensures any sub-modules are pulled
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -21,14 +22,21 @@ jobs:
           cache: 'npm'
 
       - name: Install Global Dependencies
-        run: npm i -g vite @vscode/vsce
+        run: npm i -g vite @vscode/vsce lerna
 
-      - name: Install All Dependencies
+      - name: Bootstrap Mono-repo
+        # Lerna links all the @continuedev internal packages together
         run: |
-          npm ci
-          cd gui && npm ci && cd ..
-          cd core && npm ci && cd ..
-          cd extensions/vscode && npm ci && cd ../..
+          npm install
+          npx lerna bootstrap
+        shell: pwsh
+
+      - name: Build Core and Internal Packages
+        # We MUST build the core logic before the GUI can reference it
+        run: |
+          cd core
+          npm run build
+          cd ..
         shell: pwsh
 
       - name: Build GUI
@@ -41,8 +49,8 @@ jobs:
       - name: Package Extension for Windows
         run: |
           cd extensions/vscode
+          npm install
           npm run prepackage
-          # The --target win32-x64 flag is key for Windows compatibility
           vsce package --target win32-x64 --out build/continue-windows-x64.vsix
         shell: pwsh
 
