@@ -28,19 +28,28 @@ jobs:
         run: npm install
         shell: pwsh
 
-      - name: Build Internal Dependencies
-        # core needs these to understand the imports in your Qwen.ts
+      - name: Build Internal Dependencies (The Fix)
+        # We must build these in specific order: types -> fetch -> adapters -> yaml
         run: |
+          # 1. Build the base types first (Fixes your TS2307 error)
+          cd packages/config-types; npm install; npm run build; cd ../..
+          
+          # 2. Build networking and adapters
           cd packages/fetch; npm install; npm run build; cd ../..
-          cd packages/config-yaml; npm install; npm run build; cd ../..
           cd packages/openai-adapters; npm install; npm run build; cd ../..
+          
+          # 3. Build the config parser
+          cd packages/config-yaml; npm install; npm run build; cd ../..
+          
+          # 4. Build info helper
+          cd packages/llm-info; npm install; npm run build; cd ../..
         shell: pwsh
 
       - name: Build Core (Compiling Qwen.ts)
         run: |
           cd core
           npm install
-          # Skip strict type checking to bypass those 'implicitly any' errors
+          # Skip strict type checking and force emission of JS files
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
@@ -50,6 +59,7 @@ jobs:
         run: |
           cd gui
           npm install
+          # Vite handles the React frontend bundling
           npx vite build
           cd ..
         shell: pwsh
@@ -58,8 +68,9 @@ jobs:
         run: |
           cd extensions/vscode
           npm install
+          # Prepackage moves core and gui into the extension folder
           npm run prepackage
-          # We package for win32-x64 to ensure the Windows binary is included
+          # Target win32-x64 for Windows compatibility
           vsce package --target win32-x64 --out build/continue-qwen.vsix
         shell: pwsh
 
