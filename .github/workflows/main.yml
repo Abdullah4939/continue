@@ -41,8 +41,8 @@ jobs:
       - name: Build Core (Analyze & Install)
         run: |
           cd core
-          # Manually forcing the known missing core dependencies
-          npm install partial-json @modelcontextprotocol/sdk --legacy-peer-deps
+          # Force install the missing data processing libs
+          npm install partial-json @modelcontextprotocol/sdk apache-arrow --legacy-peer-deps
           npm install --legacy-peer-deps
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
@@ -52,7 +52,6 @@ jobs:
       - name: Build GUI (Analyze & Install)
         run: |
           cd gui
-          # Manually forcing the modules Vite is failing to resolve
           npm install react-is partial-json @modelcontextprotocol/sdk --legacy-peer-deps
           npm install --legacy-peer-deps
           npx vite build
@@ -64,13 +63,14 @@ jobs:
           cd extensions/vscode
           if (!(Test-Path build)) { New-Item -ItemType Directory -Path build }
           
-          # Ensure build-essential scripts have their tools
-          npm install ncp esbuild --legacy-peer-deps
+          # Fix: Explicitly install apache-arrow and ncp in the extension folder 
+          # so esbuild can resolve them during the bundle phase.
+          npm install ncp esbuild apache-arrow --legacy-peer-deps
           npm install --legacy-peer-deps
           
           npm run prepackage
           
-          # Package without audit to ignore monorepo conflicts
+          # Package the final VSIX
           vsce package --target win32-x64 --no-dependencies --out build/continue-qwen.vsix
         shell: pwsh
 
