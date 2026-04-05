@@ -1,4 +1,4 @@
-name: Build VSIX (Windows)
+name: Build Continue Extension (Windows)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
 
     steps:
@@ -19,22 +19,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.20.1'
+          cache: 'npm'
 
       - name: Install Global Dependencies
         run: npm i -g vite @vscode/vsce
         shell: pwsh
 
-      - name: Install All Dependencies
-        # We run this at the root to capture ALL workspace dependencies (vitest, uuid, etc)
+      - name: Root Install
         run: npm install
         shell: pwsh
 
-      - name: Build Core
+      - name: Build Internal Dependencies
+        # These MUST be built before 'core' can see your Qwen changes
+        run: |
+          cd packages/fetch; npm install; npm run build; cd ../..
+          cd packages/config-yaml; npm install; npm run build; cd ../..
+          cd packages/openai-adapters; npm install; npm run build; cd ../..
+          cd packages/llm-info; npm install; npm run build; cd ../..
+        shell: pwsh
+
+      - name: Build Core (Your Qwen Changes)
         run: |
           cd core
-          # We use a 'legacy-peer-deps' or 'install' here just to be safe
           npm install
-          # We run the build but ignore errors if the JS is generated anyway
+          # We use --if-present to ensure it generates the dist files even if tests linger
           npm run build --if-present
           cd ..
         shell: pwsh
@@ -43,22 +51,22 @@ jobs:
         run: |
           cd gui
           npm install
-          # Skip the 'tsc' check and go straight to vite bundling
+          # Skip strict type checking to ensure the build finishes
           npx vite build
           cd ..
         shell: pwsh
 
-      - name: Package Extension for Windows
+      - name: Package VSIX
         run: |
           cd extensions/vscode
           npm install
-          # Prepare and package
           npm run prepackage
-          vsce package --target win32-x64 --out build/continue-windows-x64.vsix
+          # Target win32-x64 to include the correct Windows binaries
+          vsce package --target win32-x64 --out build/continue-qwen-windows.vsix
         shell: pwsh
 
-      - name: Upload Windows VSIX Artifact
+      - name: Upload Final VSIX
         uses: actions/upload-artifact@v4
         with:
-          name: continue-windows-extension
-          path: extensions/vscode/build/continue-windows-x64.vsix
+          name: continue-extension-with-qwen
+          path: extensions/vscode/build/continue-qwen-windows.vsix
