@@ -38,22 +38,22 @@ jobs:
           cd packages/llm-info; npm install --legacy-peer-deps; npm run build; cd ../..
         shell: pwsh
 
-      - name: Build Core
+      - name: Build Core (Analyze & Install)
         run: |
           cd core
-          # Ensure critical parsing libs are present
-          npm install partial-json --legacy-peer-deps
+          # Manually forcing the known missing core dependencies
+          npm install partial-json @modelcontextprotocol/sdk --legacy-peer-deps
           npm install --legacy-peer-deps
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
         continue-on-error: true
 
-      - name: Build GUI (Dependency Fix Included)
+      - name: Build GUI (Analyze & Install)
         run: |
           cd gui
-          # Force install the common missing Rollup/Vite dependencies
-          npm install react-is partial-json --legacy-peer-deps
+          # Manually forcing the modules Vite is failing to resolve
+          npm install react-is partial-json @modelcontextprotocol/sdk --legacy-peer-deps
           npm install --legacy-peer-deps
           npx vite build
           cd ..
@@ -64,13 +64,13 @@ jobs:
           cd extensions/vscode
           if (!(Test-Path build)) { New-Item -ItemType Directory -Path build }
           
-          # Fix missing build tools in extension folder
+          # Ensure build-essential scripts have their tools
           npm install ncp esbuild --legacy-peer-deps
           npm install --legacy-peer-deps
           
           npm run prepackage
           
-          # Skip audit to avoid monorepo version conflicts
+          # Package without audit to ignore monorepo conflicts
           vsce package --target win32-x64 --no-dependencies --out build/continue-qwen.vsix
         shell: pwsh
 
