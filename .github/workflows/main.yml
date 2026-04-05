@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout Code
@@ -18,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.20.1'
+          node-version: '24'
 
       - name: Install Global Tooling
         run: npm i -g vite @vscode/vsce
@@ -29,25 +31,21 @@ jobs:
         shell: pwsh
 
       - name: Build Internal Dependencies
+        # This list ensures every package required by 'esbuild' is ready
         run: |
-          # 1. Base types
           cd packages/config-types; npm install; npm run build; cd ../..
-          
-          # 2. Security & Networking (Fixes terminal-security error)
           cd packages/terminal-security; npm install; npm run build; cd ../..
           cd packages/fetch; npm install; npm run build; cd ../..
           cd packages/openai-adapters; npm install; npm run build; cd ../..
-          
-          # 3. Config Parser
           cd packages/config-yaml; npm install; npm run build; cd ../..
           cd packages/llm-info; npm install; npm run build; cd ../..
         shell: pwsh
 
-      - name: Build Core
+      - name: Build Core (Compiling Qwen)
         run: |
           cd core
           npm install
-          # Force emission even with the Qwen header error
+          # Skip strict check but emit JS for the bundler
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
@@ -65,6 +63,7 @@ jobs:
         run: |
           cd extensions/vscode
           npm install
+          # This triggers the esbuild script that was failing
           npm run prepackage
           vsce package --target win32-x64 --out build/continue-qwen.vsix
         shell: pwsh
