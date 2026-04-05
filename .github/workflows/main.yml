@@ -1,0 +1,53 @@
+name: Build VSIX (Windows)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    # We use windows-latest to ensure native modules compile for Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.1'
+          cache: 'npm'
+
+      - name: Install Global Dependencies
+        run: npm i -g vite @vscode/vsce
+
+      - name: Install All Dependencies
+        run: |
+          npm ci
+          cd gui && npm ci && cd ..
+          cd core && npm ci && cd ..
+          cd extensions/vscode && npm ci && cd ../..
+        shell: pwsh
+
+      - name: Build GUI
+        run: |
+          cd gui
+          npm run build
+          cd ..
+        shell: pwsh
+
+      - name: Package Extension for Windows
+        run: |
+          cd extensions/vscode
+          npm run prepackage
+          # The --target win32-x64 flag is key for Windows compatibility
+          vsce package --target win32-x64 --out build/continue-windows-x64.vsix
+        shell: pwsh
+
+      - name: Upload Windows VSIX Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: continue-windows-extension
+          path: extensions/vscode/build/continue-windows-x64.vsix
