@@ -20,13 +20,6 @@ jobs:
         with:
           node-version: '20.20.1'
 
-      - name: Install C++ Build Tools & SDK
-        # This fixes the sqlite3 / node-gyp "missing Windows SDK" error
-        run: |
-          Install-Module -Name Chocolatey -Force -AllowClobber
-          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
-        shell: pwsh
-
       - name: Install Global Tooling
         run: npm i -g vite @vscode/vsce
         shell: pwsh
@@ -50,7 +43,6 @@ jobs:
           cd core
           npm install partial-json
           npm install
-          # Skip strict check but emit JS
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
@@ -68,9 +60,14 @@ jobs:
       - name: Package VS Code Extension
         run: |
           cd extensions/vscode
+          # 1. Create the missing 'build' directory to fix the meta.json error
+          mkdir -p build
+          
           npm install
           npm run prepackage
-          vsce package --target win32-x64 --out build/continue-qwen.vsix
+          
+          # 2. Use --no-dependencies to bypass the 'npm list' / ELSPROBLEMS error
+          vsce package --target win32-x64 --no-dependencies --out build/continue-qwen.vsix
         shell: pwsh
 
       - name: Upload VSIX
