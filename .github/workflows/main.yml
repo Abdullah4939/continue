@@ -18,7 +18,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.20.1' # Reverting to 20 for sqlite3 compatibility
+          node-version: '20.20.1'
+
+      - name: Install C++ Build Tools & SDK
+        # This fixes the sqlite3 / node-gyp "missing Windows SDK" error
+        run: |
+          Install-Module -Name Chocolatey -Force -AllowClobber
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --wait"
+        shell: pwsh
 
       - name: Install Global Tooling
         run: npm i -g vite @vscode/vsce
@@ -41,10 +48,9 @@ jobs:
       - name: Build Core
         run: |
           cd core
-          # Explicitly install partial-json to fix the Vite/Rollup error
           npm install partial-json
           npm install
-          # Use --skipLibCheck to bypass the 'jest' and 'node' type errors
+          # Skip strict check but emit JS
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
@@ -53,9 +59,8 @@ jobs:
       - name: Build GUI
         run: |
           cd gui
-          npm install
-          # Fix: Explicitly install the missing dependency in the gui folder as well
           npm install partial-json
+          npm install
           npx vite build
           cd ..
         shell: pwsh
@@ -69,9 +74,7 @@ jobs:
         shell: pwsh
 
       - name: Upload VSIX
-        uses: actions/artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: continue-qwen-extension
           path: extensions/vscode/build/continue-qwen.vsix
-
-          
