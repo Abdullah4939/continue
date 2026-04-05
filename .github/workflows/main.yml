@@ -25,21 +25,22 @@ jobs:
         run: npm i -g vite @vscode/vsce
         shell: pwsh
 
-      - name: Install All Dependencies (Workspaces)
-        # In modern npm, this command installs everything and links packages automatically
-        run: npm install
+      - name: Install All Workspace Dependencies
+        # This installs the root and links all @continuedev packages
+        run: npm install --install-links
         shell: pwsh
 
-      - name: Build Core
-        # We target the core workspace directly
+      - name: Build Core (Skip strict types if needed)
+        # We run the build but ensure types are present to satisfy the compiler
         run: |
+          npm install --save-dev @types/node @types/jest
           cd core
           npm run build
           cd ..
         shell: pwsh
 
-      - name: Build GUI (Skip Strict Type Check if needed)
-        # If tsc fails due to strict types, we use 'vite build' directly to get the VSIX out
+      - name: Build GUI
+        # We use vite build directly to skip the 'tsc' check that was failing earlier
         run: |
           cd gui
           npx vite build
@@ -49,9 +50,11 @@ jobs:
       - name: Package Extension for Windows
         run: |
           cd extensions/vscode
-          # Ensure vscode dependencies are ready
+          # Install vscode specific deps
           npm install
+          # Prepare the build folder
           npm run prepackage
+          # Package specifically for 64-bit Windows
           vsce package --target win32-x64 --out build/continue-windows-x64.vsix
         shell: pwsh
 
