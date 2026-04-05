@@ -104,6 +104,7 @@ class Qwen extends OpenAI {
       "Content-Type": "application/json",
       Accept: "application/json",
       Authorization: `Bearer ${this._accessToken}`,
+      "api-key": this.apiKey ?? "", // This fixes the TS2416 error
     };
   }
 
