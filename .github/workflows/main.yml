@@ -8,8 +8,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout Code
@@ -20,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20.20.1' # Reverting to 20 for sqlite3 compatibility
 
       - name: Install Global Tooling
         run: npm i -g vite @vscode/vsce
@@ -31,7 +29,6 @@ jobs:
         shell: pwsh
 
       - name: Build Internal Dependencies
-        # This list ensures every package required by 'esbuild' is ready
         run: |
           cd packages/config-types; npm install; npm run build; cd ../..
           cd packages/terminal-security; npm install; npm run build; cd ../..
@@ -41,11 +38,13 @@ jobs:
           cd packages/llm-info; npm install; npm run build; cd ../..
         shell: pwsh
 
-      - name: Build Core (Compiling Qwen)
+      - name: Build Core
         run: |
           cd core
+          # Explicitly install partial-json to fix the Vite/Rollup error
+          npm install partial-json
           npm install
-          # Skip strict check but emit JS for the bundler
+          # Use --skipLibCheck to bypass the 'jest' and 'node' type errors
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
@@ -55,6 +54,8 @@ jobs:
         run: |
           cd gui
           npm install
+          # Fix: Explicitly install the missing dependency in the gui folder as well
+          npm install partial-json
           npx vite build
           cd ..
         shell: pwsh
@@ -63,13 +64,12 @@ jobs:
         run: |
           cd extensions/vscode
           npm install
-          # This triggers the esbuild script that was failing
           npm run prepackage
           vsce package --target win32-x64 --out build/continue-qwen.vsix
         shell: pwsh
 
       - name: Upload VSIX
-        uses: actions/upload-artifact@v4
+        uses: actions/artifact@v4
         with:
           name: continue-qwen-extension
           path: extensions/vscode/build/continue-qwen.vsix
