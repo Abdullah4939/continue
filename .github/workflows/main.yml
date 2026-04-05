@@ -20,40 +20,47 @@ jobs:
         with:
           node-version: '20.20.1'
 
+      # NEW STEP: Force all NPM commands to ignore peer conflicts
+      - name: Configure NPM Legacy Peer Deps
+        run: |
+          "legacy-peer-deps=true" | Out-File -FilePath .npmrc -Encoding ascii
+          "legacy-peer-deps=true" | Out-File -FilePath extensions/vscode/.npmrc -Encoding ascii
+          "legacy-peer-deps=true" | Out-File -FilePath gui/.npmrc -Encoding ascii
+        shell: pwsh
+
       - name: Install Global Tooling
         run: npm i -g vite @vscode/vsce
         shell: pwsh
 
       - name: Root Install
-        run: npm install --legacy-peer-deps
+        run: npm install
         shell: pwsh
 
       - name: Build Internal Dependencies
         run: |
-          cd packages/config-types; npm install --legacy-peer-deps; npm run build; cd ../..
-          cd packages/terminal-security; npm install --legacy-peer-deps; npm run build; cd ../..
-          cd packages/fetch; npm install --legacy-peer-deps; npm run build; cd ../..
-          cd packages/openai-adapters; npm install --legacy-peer-deps; npm run build; cd ../..
-          cd packages/config-yaml; npm install --legacy-peer-deps; npm run build; cd ../..
-          cd packages/llm-info; npm install --legacy-peer-deps; npm run build; cd ../..
+          cd packages/config-types; npm install; npm run build; cd ../..
+          cd packages/terminal-security; npm install; npm run build; cd ../..
+          cd packages/fetch; npm install; npm run build; cd ../..
+          cd packages/openai-adapters; npm install; npm run build; cd ../..
+          cd packages/config-yaml; npm install; npm run build; cd ../..
+          cd packages/llm-info; npm install; npm run build; cd ../..
         shell: pwsh
 
-      - name: Build Core (Analyze & Install)
+      - name: Build Core
         run: |
           cd core
-          # Force install the missing data processing libs
-          npm install partial-json @modelcontextprotocol/sdk apache-arrow --legacy-peer-deps
-          npm install --legacy-peer-deps
+          npm install partial-json @modelcontextprotocol/sdk apache-arrow
+          npm install
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
         continue-on-error: true
 
-      - name: Build GUI (Analyze & Install)
+      - name: Build GUI
         run: |
           cd gui
-          npm install react-is partial-json @modelcontextprotocol/sdk --legacy-peer-deps
-          npm install --legacy-peer-deps
+          npm install react-is partial-json @modelcontextprotocol/sdk
+          npm install
           npx vite build
           cd ..
         shell: pwsh
@@ -63,14 +70,12 @@ jobs:
           cd extensions/vscode
           if (!(Test-Path build)) { New-Item -ItemType Directory -Path build }
           
-          # Fix: Explicitly install apache-arrow and ncp in the extension folder 
-          # so esbuild can resolve them during the bundle phase.
-          npm install ncp esbuild apache-arrow --legacy-peer-deps
-          npm install --legacy-peer-deps
+          # This will now use the .npmrc we created earlier
+          npm install ncp esbuild apache-arrow
+          npm install
           
           npm run prepackage
           
-          # Package the final VSIX
           vsce package --target win32-x64 --no-dependencies --out build/continue-qwen.vsix
         shell: pwsh
 
