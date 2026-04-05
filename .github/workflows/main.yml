@@ -25,24 +25,24 @@ jobs:
         shell: pwsh
 
       - name: Root Install
-        run: npm install
+        run: npm install --legacy-peer-deps
         shell: pwsh
 
       - name: Build Internal Dependencies
         run: |
-          cd packages/config-types; npm install; npm run build; cd ../..
-          cd packages/terminal-security; npm install; npm run build; cd ../..
-          cd packages/fetch; npm install; npm run build; cd ../..
-          cd packages/openai-adapters; npm install; npm run build; cd ../..
-          cd packages/config-yaml; npm install; npm run build; cd ../..
-          cd packages/llm-info; npm install; npm run build; cd ../..
+          cd packages/config-types; npm install --legacy-peer-deps; npm run build; cd ../..
+          cd packages/terminal-security; npm install --legacy-peer-deps; npm run build; cd ../..
+          cd packages/fetch; npm install --legacy-peer-deps; npm run build; cd ../..
+          cd packages/openai-adapters; npm install --legacy-peer-deps; npm run build; cd ../..
+          cd packages/config-yaml; npm install --legacy-peer-deps; npm run build; cd ../..
+          cd packages/llm-info; npm install --legacy-peer-deps; npm run build; cd ../..
         shell: pwsh
 
       - name: Build Core
         run: |
           cd core
-          npm install partial-json
-          npm install
+          npm install partial-json --legacy-peer-deps
+          npm install --legacy-peer-deps
           npx tsc -p tsconfig.npm.json --skipLibCheck --noEmitOnError false
           cd ..
         shell: pwsh
@@ -51,8 +51,8 @@ jobs:
       - name: Build GUI
         run: |
           cd gui
-          npm install partial-json
-          npm install
+          npm install partial-json --legacy-peer-deps
+          npm install --legacy-peer-deps
           npx vite build
           cd ..
         shell: pwsh
@@ -60,13 +60,17 @@ jobs:
       - name: Package VS Code Extension
         run: |
           cd extensions/vscode
-          # 1. Create the missing 'build' directory to fix the meta.json error
-          mkdir -p build
+          # Ensure build dir exists
+          if (!(Test-Path build)) { New-Item -ItemType Directory -Path build }
           
-          npm install
+          # Install dependencies with legacy-peer-deps to ignore the @types/node conflict
+          # Also manually install ncp since it's failing to resolve
+          npm install ncp esbuild --legacy-peer-deps
+          npm install --legacy-peer-deps
+          
           npm run prepackage
           
-          # 2. Use --no-dependencies to bypass the 'npm list' / ELSPROBLEMS error
+          # Use --no-dependencies to avoid the npm list ELSPROBLEMS audit
           vsce package --target win32-x64 --no-dependencies --out build/continue-qwen.vsix
         shell: pwsh
 
